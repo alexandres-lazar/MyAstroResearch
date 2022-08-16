@@ -14,6 +14,7 @@ def main() -> None:
     load_particles()
     construct_kdtree()
     particles_in_halo_kd_tree()
+    in_halo_via_kdtree()
 
 # ---------------------------------------------------------------------------
 
@@ -26,8 +27,7 @@ def in_halo_via_kdtree(kdtree, halo_pos: float, halo_rad: float) -> int:
 
 
 def construct_kdtree(pos: float) -> None:
-    """Constructs KD-Tree based on passed particles positions of tuple(3, N)
-    """
+    """Constructs KD-Tree based on passed particles positions"""
     print(f"... Constructing KDtree for {pos.shape[0]} particles")
     from scipy.spatial import KDTree
     return KDTree(pos)
@@ -69,7 +69,7 @@ def load_particles(simPath: str, snapNum: int = 600, partType: str = "PartType4"
             for key in key_list:
                 results[key] = []
 
-        # empty lists set in, now begin loop.
+        # empty lists initialized, now begin loop.
         for chunk in range(num_chunks):
             completePath = f"{snapdirPath}/snapshot_{snapNum}.{chunk}.hdf5"
             with h5py.File(completePath, 'r') as h5:

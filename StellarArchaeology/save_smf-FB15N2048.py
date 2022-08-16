@@ -33,7 +33,7 @@ zList['snapshot_020'] = 7.113
 zList['snapshot_016'] = 8.130
 
 # import self-made analysis modules
-import analysis_lss
+from tools import lss
 
 # ---------------------------------------------------------------------------
 
@@ -51,9 +51,9 @@ def main() -> None:
         # mass function
         catalog = load_ahf_catalog(catalog_path) 
         print("... Computing mass function")
-        smf_results = analysis_lss.compute_mass_function(catalog['stellar.mass'], 
-                                                         volume=BOX_VOLUME,
-                                                         log_bounds=(3, 12))
+        smf_results = lss.compute_mass_function(catalog['stellar.mass'], 
+                                                volume=BOX_VOLUME,
+                                                log_bounds=(3, 12))
       
         # results are save to snapshot specific dictionary which is then  
         # saved to all encompasing dictionary

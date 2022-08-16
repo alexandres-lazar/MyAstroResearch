@@ -10,11 +10,11 @@ if sys.version_info < (3, 6):
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    return CosmologyFunctions()
+    return SetCosmology()
 
 # ---------------------------------------------------------------------------
 
-class CosmologyFunctions(object):
+class SetCosmology(object):
 
     def __init__(self, h0: float = 0.6774, Om0: float = 0.3089, Ol0: float = 0.6911, 
                        Ob0: float = 0.0486, Or0: float = 0.0, boxsize: float = 15.0, 

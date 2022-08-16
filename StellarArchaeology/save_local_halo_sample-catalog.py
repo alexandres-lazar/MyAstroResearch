@@ -17,25 +17,25 @@ hdf5_keys = ['cosmology:hubble',
              'mass.vir'];
 
 # import self-made analysis modules
-import sample_simulations
-import analysis_halos
-import analysis_cosmology
+from sample import simulations
+from tools import halos
+from tools import cosmology
 
 # ---------------------------------------------------------------------------
 
 def main() -> None:
     
-    haloList = sample_simulations.sample_list
+    haloList = simulations.sample_list
     for sim in haloList:
         print("-" * 75)
         print(f">>> Starting sample collection for {sim}")
         
         # import halo catalog
         haloPath = f"/data17/grenache/aalazar/FIRE/GVB/{sim}/halo/rockstar_dm/hdf5/halo_600.hdf5"
-        h5 = analysis_halos.load_halo_catalog(haloPath, hdf5_keys)
+        h5 = halos.load_halo_catalog(haloPath, hdf5_keys)
 
         # load cosmology class with specific parameters
-        cosmo = analysis_cosmology.CosmologyFunctions(h0=h5['cosmology:hubble'], 
+        cosmo = cosmology.SetCosmology(h0=h5['cosmology:hubble'], 
                                                       Om0=h5['cosmology:omega_matter'], 
                                                       Ol0=h5['cosmology:omega_lambda'])
         

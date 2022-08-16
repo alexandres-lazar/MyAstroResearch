@@ -37,10 +37,10 @@ halo_keys = ['cosmology:hubble',
 star_keys = ['star.indices'];
 
 # import self-made functions
-import sample_simulations
-import analysis_particles
-import analysis_halos
-import analysis_lss
+from sample import simulations
+from tools import particles
+from tools import halos
+from tools import lss
     
 # Grab Currrent Time Before Running the Code
 start = time.time()
@@ -54,7 +54,7 @@ def main() -> None:
     print("-" * 75)
     
     # will change this if including M31 analog samples...
-    haloList = sample_simulations.sample_list
+    haloList = simulations.sample_list
 
     # initialize hdf5 file
     resultFile = f"{outPath}/smf-archaeology.hdf5"
@@ -64,27 +64,27 @@ def main() -> None:
             for cstr, _ in star_sample_criteria().items():
                 sh5.create_group(cstr)
 
-    # analysis for each halo starts here
+    # analysis for each simulation halo starts here
     for sim in haloList:
         print(f">>> Starting analysis for {sim}")
 
         # first import the post-processed subhalo sample
         samplePath = f"results/local_halo_sample-catalog/{sim}.hdf5"
         print("... Loading subhalo sample")
-        sub_sample = analysis_halos.load_subhalo_sample(samplePath)
+        sub_sample = halos.load_subhalo_sample(samplePath)
 
         # load in original halo catalog and complimentary star catalogs
         print("... Loading halo and star catalog")
         haloPath = f"/data17/grenache/aalazar/FIRE/GVB/{sim}/halo/rockstar_dm/hdf5/halo_600.hdf5"
         starPath = f"/data17/grenache/aalazar/FIRE/GVB/{sim}/halo/rockstar_dm/hdf5/star_600.hdf5"
-        h5_halo = analysis_halos.load_halo_catalog(haloPath, halo_keys)
-        h5_star = analysis_halos.load_star_catalog(starPath, star_keys)
+        h5_halo = halos.load_halo_catalog(haloPath, halo_keys)
+        h5_star = halos.load_star_catalog(starPath, star_keys)
 
         # load in simulation star particles
         print("... Loading star particles")
         simPath = f"/data17/grenache/aalazar/FIRE/GVB/{sim}/output/hdf5"
         partType4_keys = ['Masses', 'Coordinates', 'StellarFormationTime']
-        h5p_star = analysis_particles.load_particles(simPath, key_list=partType4_keys)
+        h5p_star = particles.load_particles(simPath, key_list=partType4_keys)
 
         # construct KDtree, partition out subhalo stars, and perform age computation
         archeo_results = perform_archaeology(h5p_star, sub_sample, 
@@ -98,7 +98,7 @@ def main() -> None:
                 sh5 = h5[sim][cstr]
                 for astr in alist:
                     ah5 = sh5.create_group(astr)
-                    smf = analysis_lss.compute_mass_function(archeo_results[cstr][astr], 
+                    smf = lss.compute_mass_function(archeo_results[cstr][astr], 
                                                              volume=1.0, 
                                                              log_bounds=(4, 8))
                     for smf_str, smf_val in smf.items():
@@ -125,7 +125,7 @@ def perform_archaeology(partType4, sub_sample, criteria_dict) -> float:
     results = dict()
    
     # construct kdtree of star particles
-    kdtree = analysis_particles.construct_kdtree(partType4['Coordinates'])
+    kdtree = particles.construct_kdtree(partType4['Coordinates'])
 
     # set subhalo sample size and quantities
     subhalo_sample_size = sub_sample['sub:catalog.index:z=0'].shape[0]
@@ -151,7 +151,7 @@ def perform_archaeology(partType4, sub_sample, criteria_dict) -> float:
         for ind, (hpos, hrad) in enumerate(zip(subhalo_position, subhalo_radius)):
  
             # compute mass with star ages greater than zref (\propto 1/aref)
-            particle_index = analysis_particles.in_halo_via_kdtree(kdtree, hpos, carg*hrad)
+            particle_index = particles.in_halo_via_kdtree(kdtree, hpos, carg*hrad)
             mass = partType4['Masses'][particle_index]
             age = partType4['StellarFormationTime'][particle_index]
             mstar_dict['a0'][ind] += np.sum(mass)
