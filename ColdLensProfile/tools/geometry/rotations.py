@@ -23,6 +23,31 @@ class CoordinateRotation3D(object):
     def __len__(self) -> int:
         return len(self.coords)
 
+    def coordinates(self) -> float:
+        """Returns coordinates has inputed -> C(xyz)"""
+        return self.coords
+    
+    def coordinates_permutation(self, perm: str = "xyz") -> float:
+        """Returns coordinates has partitioned by 1 -> C(yzx)"""
+        if perm == "xyz":
+            result = self.coordinates()
+        else:
+            c = self.coords
+            x = c[:, 0]
+            y = c[:, 1]
+            z = c[:, 2]
+            if perm == "yzx":
+                result = np.dstack((y, z, x))[0]
+            elif perm == "zxy":
+                result = np.dstack((z, x, y))[0]
+            elif perm == "zyx":
+                result = np.dstack((z, y, x))[0]
+            elif perm == "yxz":
+                result = np.dstack((y, x, z))[0]
+            elif perm == "xzy":
+                result = np.dstack((x, z, y))[0]
+        return result
+
     def uniform_rotation(self) -> float:
         """Coordinate transformation using uniform matrix"""
         result = np.zeros(self.coords.shape)

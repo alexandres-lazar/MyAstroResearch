@@ -129,7 +129,9 @@ def start_analysis(halo_dict, cosmo_dict, scale_factor: float,
     #results['deproj:density'] = np.zeros((nsample, profile_bins))
     
     # initialize projected quantities
-    axs_list = [str(n) for n in range(5)]
+    axs_list = ["xyz", "yzx", "zxy"]       # take present coords and permutate (faster)
+    #axs_list = ["maj", "int", "min"]       # computes the density axis and evaluates along said axis (slow)
+    #axs_list = [str(n) for n in range(3)]  # n number of random rotations
     for axs in axs_list:
         results[f'E.1:vir:{axs}'] = np.zeros(nsample)
         results[f'R.1:vir:{axs}'] = np.zeros(nsample)
@@ -176,7 +178,8 @@ def start_analysis(halo_dict, cosmo_dict, scale_factor: float,
                 # be fit well
                 kwargs = {
                         'deproj_dict': deproj, 'cosmo_dict': cosmo_dict, 
-                        'scale_factor': scale_factor, 'profile_bins': profile_bins
+                        'scale_factor': scale_factor, 'profile_bins': profile_bins,
+                        'axs_list': axs_list
                         }
                 proj = compute_projected_properties(**kwargs, verbose=verbose)
             except ValueError:
@@ -204,11 +207,14 @@ def start_analysis(halo_dict, cosmo_dict, scale_factor: float,
 
 
 def compute_projected_properties(deproj_dict, cosmo_dict, scale_factor: float, 
-                                 profile_bins: int = 25, verbose: bool = False, 
-                                 *args, **kwargs) -> None:
+                                 profile_bins: int = 25, verbose: bool = False,
+                                 axs_list = None, *args, **kwargs) -> None:
     """Analysis here constructs projected halo profile from the deprojected 
-       results. Profiles are constructed and fitted in random projections and 
-       alongs the three density axii.
+       results. 
+       Profiles are constructed and can be fitted based on random projections,
+       along the a specified density axii, or along permutation based on passed
+       coordinates.
+       Currently, you must specify the axs_list or this functin will not work..
     """
     results = deproj_dict.copy()
     
@@ -226,44 +232,81 @@ def compute_projected_properties(deproj_dict, cosmo_dict, scale_factor: float,
     rot_coords_vir = rotations.CoordinateRotation3D(results['part.sep'][dw1])
     rot_coords_200 = rotations.CoordinateRotation3D(results['part.sep'][dw2])
     
-    # performing 5 random coordinate rotations of a single halo
-    n_rotation_success = 0
-    n_rotation_reattempts = 0
-    n_rotations = 5
-    while(n_rotation_success < n_rotations):
-        try:
-            # evaluate for virial definition
-            kwargs1 = {
-                    'result_dict': results, 
-                    'rot_coords_class': rot_coords_vir, 
-                    'part_mass': results['part.mass'][dw1], 
-                    'profile_bins': profile_bins,
-                    'save_key': str(n_rotation_success)
-                    }
-            eval_along_axis(**kwargs1, halo_def='vir') 
-            # evaluate for 200c definition
-            kwargs2 = {
-                    'result_dict': results, 
-                    'rot_coords_class': rot_coords_200, 
-                    'part_mass': results['part.mass'][dw2], 
-                    'profile_bins': profile_bins,
-                    'save_key': str(n_rotation_success)
-                    }
-            eval_along_axis(**kwargs2, halo_def='200c') 
-        except ValueError:
-            n_rotation_reattempts += 1 
-        else:            
+    print(axs_list)
+    if axs_list == None:
+        raise Exception("!!! Must specify axs_list !!!")
+    else:
+        cond1 = all(isinstance(x, int) for x in axs_list)
+        cond2 = all(isinstance(x, str) for x in axs_list)
+        # first check if all elements are integers for only rand rotations
+        if cond1:
+            n_rotation_success = 0
+            n_rotation_reattempts = 0
+            n_rotations = len(axs_list)
+            while(n_rotation_success < n_rotations):
+                try:
+                    # evaluate for virial definition
+                    kwargs1 = {
+                            'result_dict': results, 
+                            'rot_coords_class': rot_coords_vir, 
+                            'part_mass': results['part.mass'][dw1], 
+                            'profile_bins': profile_bins,
+                            'save_key': str(n_rotation_success)
+                            }
+                    eval_along_axis(**kwargs1, halo_def='vir') 
+                    # evaluate for 200c definition
+                    kwargs2 = {
+                            'result_dict': results, 
+                            'rot_coords_class': rot_coords_200, 
+                            'part_mass': results['part.mass'][dw2], 
+                            'profile_bins': profile_bins,
+                            'save_key': str(n_rotation_success)
+                            }
+                    eval_along_axis(**kwargs2, halo_def='200c') 
+                except ValueError:
+                    n_rotation_reattempts += 1 
+                else:            
+                    if verbose:
+                        mv = results[f'M.enc:vir:{n_rotation_success}'] 
+                        cv = results[f'C.1:vir:{n_rotation_success}'] 
+                        print(f"| Rand rotation {n_rotation_success} Menc and C [vir]: {mv:0.3e} and {cv:0.3f}")
+                        m2 = results[f'M.enc:200c:{n_rotation_success}'] 
+                        c2 = results[f'C.1:200c:{n_rotation_success}'] 
+                        print(f"| Rand rotation {n_rotation_success} Menc and C [200c]: {m2:0.3e} and {c2:0.3f}")
+                    n_rotation_success += 1  
             if verbose:
-                mv = results[f'M.enc:vir:{n_rotation_success}'] 
-                cv = results[f'C.1:vir:{n_rotation_success}'] 
-                print(f"| Rand rotation {n_rotation_success} Menc and C [vir]: {mv:0.3e} and {cv:0.3f}")
-                m2 = results[f'M.enc:200c:{n_rotation_success}'] 
-                c2 = results[f'C.1:200c:{n_rotation_success}'] 
-                print(f"| Rand rotation {n_rotation_success} Menc and C [200c]: {m2:0.3e} and {c2:0.3f}")
-            n_rotation_success += 1  
-    if verbose:
-        print(f"Random rotation re-attempts: {n_rotation_reattempts}")
-            
+                print(f"Random rotation re-attempts: {n_rotation_reattempts}")
+        elif cond2:
+            for axs in axs_list:
+                try:
+                    # evaluate for virial definition
+                    kwargs1 = {
+                            'result_dict': results, 
+                            'rot_coords_class': rot_coords_vir, 
+                            'part_mass': results['part.mass'][dw1], 
+                            'profile_bins': profile_bins,
+                            'save_key': axs
+                            }
+                    eval_along_axis(**kwargs1, halo_def='vir') 
+                    # evaluate for 200c definition
+                    kwargs2 = {
+                            'result_dict': results, 
+                            'rot_coords_class': rot_coords_200, 
+                            'part_mass': results['part.mass'][dw2], 
+                            'profile_bins': profile_bins,
+                            'save_key': axs
+                            }
+                    eval_along_axis(**kwargs2, halo_def='200c') 
+                except ValueError:
+                    pass
+                else:
+                    if verbose:
+                        mv = results[f'M.enc:vir:{axs}'] 
+                        cv = results[f'C.1:vir:{axs}'] 
+                        print(f"| Permutation {axs} Menc and C [vir]: {mv:0.3e} and {cv:0.3f}")
+                        m2 = results[f'M.enc:200c:{axs}'] 
+                        c2 = results[f'C.1:200c:{axs}'] 
+                        print(f"| Permutation {axs} Menc and C [200c]: {m2:0.3e} and {c2:0.3f}")
     return results
 
 
@@ -276,7 +319,14 @@ def eval_along_axis(result_dict, rot_coords_class, part_mass: float,
     """
 
     if axis is None:
-        nz_pos = rot_coords_class.random_rotation()
+        if save_key == "xyz":
+            nz_pos = rot_coords_class.coordinates_permutation(perm=save_key)
+        elif save_key == "yzx":
+            nz_pos = rot_coords_class.coordinates_permutation(perm=save_key)
+        elif save_key == "zxy":
+            nz_pos = rot_coords_class.coordinates_permutation(perm=save_key)
+        elif save_key == None:
+            nz_pos = rot_coords_class.random_rotation()
     else:
         # transfrom coordinates for z-axis to align with passed `axis`
         nz_pos = rot_coords_class.rotation_new_z_axis(axis) 
